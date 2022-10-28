@@ -1,7 +1,14 @@
 import uuid
+import datetime
 
 def generate_uuid() -> str:
     return str(uuid.uuid4())
+
+def format_date_time(date_time) -> str:
+    date_time = date_time.split("T")
+    date = date_time[0]
+    time = date_time[1].split(".")[0]
+    return date + " " + time
 
 def customStyle() -> str:
     return """
@@ -50,5 +57,10 @@ def customStyle() -> str:
             padding: 5px;
             border: none;
             outline: none;
+        }
+        QListView{
+            background: rgba(255, 255, 255, 0.5);
+            border: 3px solid #000;
+            border-radius: 25px;
         }
     """

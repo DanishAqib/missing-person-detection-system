@@ -19,7 +19,7 @@ submitted_cases_table = """
         sc_gender varchar(10) not null,
         sc_last_seen_location varchar(50) not null,
         sc_case_status varchar(50) not null,
-        sc_case_image varchar(200000) not null,
+        sc_case_image text not null,
         sc_face_encoding jsonb not null,
         sc_created_at timestamp default current_timestamp,
         sc_submitted_at timestamp default current_timestamp
@@ -31,6 +31,7 @@ detected_persons_table = """
         dp_id uuid not null primary key,
         dp_case_id uuid references submitted_cases(sc_id),
         dp_location varchar(50) not null,
+        dp_detected_image text not null,
         dp_detected_at timestamp default current_timestamp
     )"""
     

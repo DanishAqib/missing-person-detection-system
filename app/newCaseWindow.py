@@ -173,7 +173,6 @@ class NewCaseWindow(QMainWindow):
             else:
                 QMessageBox.about(self, "Error", "Something went wrong")
         except Exception as e:
-            print(e)
             QMessageBox.about(self, "Error", "Couldn't connect to database")
 
 if __name__ == "__main__":

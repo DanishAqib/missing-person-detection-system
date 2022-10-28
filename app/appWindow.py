@@ -4,6 +4,7 @@ import json
 import base64
 import io
 
+from PIL import Image
 import numpy as np
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import Qt, QSize
@@ -11,8 +12,9 @@ from PyQt5.QtGui import QPixmap, QIcon, QStandardItemModel, QStandardItem, QCurs
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QListView, QBoxLayout
 from newCaseWindow import NewCaseWindow
 from detectionWindow import DetectionWindow
-from PyQt5.QtWidgets import QListWidget, QLabel, QLineEdit
-from utils import customStyle
+from casesListWindow import CasesListWindow
+from PyQt5.QtWidgets import QListWidget, QLabel, QLineEdit, QMessageBox
+from utils import customStyle, format_date_time
 
 class AppWindow(QMainWindow):
     def __init__(self, user=""):
@@ -22,6 +24,7 @@ class AppWindow(QMainWindow):
         self.height = 850
         self.icon_path = "../resources/icon.png"
         self.user = user
+        self.cases = []
         self.setStyleSheet(customStyle())
 
         self.initialize()
@@ -42,11 +45,13 @@ class AppWindow(QMainWindow):
         btn_view_submitted_cases.move(410, 350)
         btn_view_submitted_cases.resize(292, 70)
         btn_view_submitted_cases.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        btn_view_submitted_cases.clicked.connect(self.view_submitted_cases)
 
         btn_view_found_cases = QPushButton("View Found Cases", self)
         btn_view_found_cases.move(410, 450)
         btn_view_found_cases.resize(292, 70)
         btn_view_found_cases.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        btn_view_found_cases.clicked.connect(self.view_found_cases)
 
         btn_start_detection = QPushButton("Start Detection", self)
         btn_start_detection.move(410, 550)
@@ -64,7 +69,8 @@ class AppWindow(QMainWindow):
         self.show()
 
     def start_detection(self):
-        self.detection_window = DetectionWindow()
+        self.get_cases()
+        self.detection_window = DetectionWindow(self.cases)
         self.detection_window.show()
 
     def new_case(self):
@@ -80,10 +86,40 @@ class AppWindow(QMainWindow):
         title.setAlignment(QtCore.Qt.AlignCenter)
 
     def view_submitted_cases(self):
+        self.get_cases()
+        if self.cases == []:
+            QMessageBox.about(self, "No cases", "No cases have been found")
+        else:
+            self.view_submitted_cases_ui(self.cases)
+
+    def view_found_cases(self):
+        self.get_found_cases()
+        if self.cases == []:
+            QMessageBox.about(self, "No cases", "No cases have been found")
+        else:
+            self.view_found_cases_ui(self.cases)
+
+    def view_submitted_cases_ui(self, cases):
+        self.cases_list_window = CasesListWindow(cases, "Submitted Cases")
+        self.cases_list_window.show()
+
+    def view_found_cases_ui(self, cases):
+        self.cases_list_window = CasesListWindow(cases, "Found Cases")
+        self.cases_list_window.show()
+
+    def get_cases(self):
         URL = "http://localhost:8000/get-cases"
-        response = requests.get(URL)
-        cases = response.json()
-        print(cases)
+        try:
+            self.cases = json.loads(requests.get(URL).text)
+        except requests.ConnectionError as e:
+            QMessageBox.about(self, "Something went wrong", str(e))
+
+    def get_found_cases(self):
+        URL = "http://localhost:8000/get-found-cases"
+        try:
+            self.cases = json.loads(requests.get(URL).text)
+        except requests.ConnectionError as e:
+            QMessageBox.about(self, "Something went wrong", str(e))
 
     def logout(self):
         from loginWindow import LoginWindow

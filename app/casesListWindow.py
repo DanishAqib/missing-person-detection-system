@@ -1,106 +1,147 @@
-# import sys
-# import numpy as np
+import sys
+import base64
+from PIL import Image
+import numpy as np
+import io
 
-# from PyQt5 import QtGui, QtCore
-# from PyQt5.QtCore import Qt, QSize
-# from PyQt5.QtGui import QPixmap, QIcon, QStandardItemModel, QStandardItem, QCursor
-# from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QListView, QBoxLayout, QFileDialog
-# from PyQt5.QtWidgets import QMessageBox, QListWidget, QLabel, QLineEdit, QComboBox
+from PyQt5 import QtGui, QtCore
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QPixmap, QIcon, QStandardItemModel, QStandardItem, QCursor
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QListView
+from PyQt5.QtWidgets import QLabel
+from utils import customStyle, format_date_time
 
-# class CasesListWindow(QMainWindow):
-#     def __init__(self, cases = []):
-#         super().__init__()
-#         self.title = "Cases List"
-#         self.width = 1100
-#         self.height = 850
-#         self.icon_path = "../resources/icon.png"
-#         self.cases = cases
+class CasesListWindow(QMainWindow):
+    def __init__(self, cases=[], case_title=""):
+        super().__init__()
+        self.title = "Cases List"
+        self.width = 1100
+        self.height = 850
+        self.icon_path = "../resources/icon.png"
+        self.cases = cases
+        self.case_title = case_title
+        self.setStyleSheet(customStyle())
 
-#         self.initialize()
+        self.initialize()
 
-#     def initialize(self):
-#         self.setWindowIcon(QtGui.QIcon(self.icon_path))
-#         self.setWindowTitle(self.title)
-#         self.setFixedSize(self.width, self.height)
+    def initialize(self):
+        self.setWindowIcon(QtGui.QIcon(self.icon_path))
+        self.setWindowTitle(self.title)
+        self.setFixedSize(self.width, self.height)
 
-#         # display cases in a list
-#         self.cases_list = QListWidget(self)
-#         self.cases_list.move(50, 50)
-#         self.cases_list.resize(1000, 700)
+        if len(self.cases) == 0:
+            self.display_no_cases()
+        else:
+            self.display_title(self.case_title)
+            self.display_cases()
 
-#         # add cases to the list
-#         for case in self.cases:
-#             self.cases_list.addItem(case)
+        btn_close = QPushButton("Close", self)
+        btn_close.move(410, 720)
+        btn_close.resize(292, 40)
+        btn_close.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        btn_close.clicked.connect(self.close)
+        
+        self.show()
 
+    def display_title(self, w_title):
+        title = QLabel(w_title, self)
+        title.move(400, 20)
+        title.resize(292, 30)
+        title.setFont(QtGui.QFont("Poppins", 20, QtGui.QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
 
-#         self.show()
+    def display_cases(self):
+        list_ = QListView(self)
+        list_.setIconSize(QSize(150, 150))
+        list_.setSpacing(20)
+        list_.setMinimumSize(1020, 620)
+        list_.move(40, 60)
+        model = QStandardItemModel(list_)
 
-# app = QApplication(sys.argv)
-# style = """
-#         QWidget{
-#             background-image: url(../resources/bg.png);
-#         }
-#         QLabel{
-#             font-family: Poppins;
-#             font-size: 30px;
-#             font-weight: 600;
-#             color: #fff;
-#         }
-#         QPushButton
-#         {
-#             background: #00FFE6;
-#             border: 3px solid #000;
-#             color: #000;
-#             text-transform: uppercase;
-#             font-size: 18px;
-#             font-weight: bold;
-#             border-radius: 25px;
-#             outline: none;
-#         }
-#         QPushButton:hover{
-#             background: #000;
-#             color: #00FFE6;
-#         }
-#         QLineEdit {
-#             padding: 5px 10px;
-#             font-size: 18px;
-#             border: 3px solid #000;
-#             background: #fff;
-#             font-family: Poppins;
-#             border-radius: 25px;
-#         }
-#         QMessageBox {
-#             background: #fff;
-#             color: #000;
-#         }
-#         QMessageBox QLabel {
-#             font-size: 16px;
-#             font-weight: normal;
-#             background: #fff;
-#             color: #000;
-#         }
-#     """
+        for case in self.cases:
+            if self.case_title == "Submitted Cases":
+                self.display_submitted_cases(case, model)
+            else:
+                self.display_found_cases(case, model)
 
-# # make dummy cases list
-# cases = [{
-#     "id": 1,
-#     "name": "Case 1",
-#     "description": "This is case 1",
-#     "created_at": "2020-01-01 00:00:00",
-#     "updated_at": "2020-01-01 00:00:00"
-# }, {
-#     "id": 2,
-#     "name": "Case 2",
-#     "description": "This is case 2",
-#     "created_at": "2020-01-01 00:00:00",
-#     "updated_at": "2020-01-01 00:00:00"
-# }, {
-#     "id": 3,
-#     "name": "Case 3",
-#     "description": "This is case 3",
-#     "created_at": "2020-01-01 00:00:00",
-#     "updated_at": "2020-01-01 00:00:00"
-# }]
-# app.setStyleSheet(style)
-# window = CasesListWindow(cases)
-# sys.exit(app.exec_())
+        list_.setModel(model)
+        list_.show()
+        
+    def display_submitted_cases(self, case, model):
+            image = self.decode_base64(case[7])
+            p_case_status = case[6]
+            item = QStandardItem(
+                "\tCase Status:\t" + p_case_status + 
+                "\n\tPerson Name:\t" + case[2] + 
+                "\n\tPerson Age:\t" + str(case[3]) +
+                "\n\tPerson Gender:\t" + case[4] +
+                "\n\tLast seen location:\t" + case[5] +
+                "\n\tCase Submitted At:\t" + format_date_time(case[9])
+            )
+            item.setFont(QtGui.QFont("Poppins", 8, QtGui.QFont.Bold))
+            item.setText(item.text().title())
+            if p_case_status == "found":
+                item.setBackground(QtGui.QColor("#4caf50"))
+            else:
+                item.setBackground(QtGui.QColor("#e28743"))
+            image = QtGui.QImage(image,
+                                    image.shape[1],
+                                    image.shape[0],
+                                    image.shape[1] * 3,
+                                    QtGui.QImage.Format_RGB888)
+            icon = QPixmap(image)
+            item.setIcon(QIcon(icon))
+            model.appendRow(item)
+
+    def display_found_cases(self, case, model):
+        case_image = self.decode_base64(case[5])
+        detected_image = self.decode_base64(case[9])
+        p_name = case[1]
+        p_age = case[2]
+        p_gender = case[3]
+        p_case_status = case[4]
+        p_case_submitted_at = format_date_time(case[6])
+        p_detected_location = case[8]
+        p_detected_at = format_date_time(case[10])
+
+        item = QStandardItem(
+            "\tCase Status:\t" + p_case_status + 
+            "\n\tPerson Name:\t" + p_name + 
+            "\n\tPerson Age:\t" + str(p_age) +
+            "\n\tPerson Gender:\t" + p_gender + 
+            "\n\tCase Submitted At:\t" + p_case_submitted_at +
+            "\n\tDetected Location:\t" + p_detected_location +
+            "\n\tDetected At:\t" + p_detected_at
+        )
+        item.setFont(QtGui.QFont("Poppins", 8, QtGui.QFont.Bold))
+        item.setText(item.text().title())
+        item.setBackground(QtGui.QColor("#4caf50"))
+        
+        case_image = QtGui.QImage(case_image,
+                                case_image.shape[1],
+                                case_image.shape[0],
+                                case_image.shape[1] * 3,
+                                QtGui.QImage.Format_RGB888)
+        detected_image = QtGui.QImage(detected_image,
+                                detected_image.shape[1],
+                                detected_image.shape[0],
+                                detected_image.shape[1] * 3,
+                                QtGui.QImage.Format_RGB888)
+        icon = QPixmap(case_image)
+        detected_icon = QPixmap(detected_image)
+        item.setIcon(QIcon(icon))
+        item.setIcon(QIcon(detected_icon))
+        model.appendRow(item)       
+
+    def display_no_cases(self):
+        no_cases_label = QLabel("No cases found", self)
+        no_cases_label.move(430, 250)
+        no_cases_label.resize(292, 70)
+
+    def decode_base64(self, img: str):
+        img = np.array(Image.open(io.BytesIO(base64.b64decode(img))))
+        return img
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    sys.exit(app.exec_())

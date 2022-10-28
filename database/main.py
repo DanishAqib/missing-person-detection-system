@@ -23,6 +23,11 @@ class Case(BaseModel):
     sc_case_image: str
     sc_face_encoding: str
 
+class DetectPerson(BaseModel):
+    dp_case_id: str
+    dp_location: str
+    dp_detected_image: str
+
 app = FastAPI()
 
 def get_user_id(username):
@@ -38,6 +43,16 @@ def get_user_name(user_id):
         cursor.execute("select u_name from users where u_id = '{}'".format(user_id))
         user_name = cursor.fetchone()
         return user_name[0]
+
+def check_case_id(case_id):
+    with PostgresConnection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("select dp_case_id from detected_persons where dp_case_id = '{}'".format(case_id))
+        result = cursor.fetchone()
+        if result is None:
+            return False
+        else:
+            return True
 
 @app.post('/login')
 def authenticate(user: User):
@@ -79,8 +94,24 @@ def get_cases():
     with PostgresConnection() as connection:
         cursor = connection.cursor()
         cursor.execute("select * from submitted_cases")
-        cases = cursor.fetchall()
-        return cases
+        return cursor.fetchall()
+
+@app.get("/get-found-cases")
+def get_found_cases():
+    with PostgresConnection() as connection:
+        query = """
+                select sc_id, sc_name, 
+                sc_age, sc_gender, 
+                sc_case_status, sc_case_image, 
+                sc_submitted_at, dp_id, 
+                dp_location, dp_detected_image, 
+                dp_detected_at 
+                from submitted_cases join detected_persons 
+                on sc_id = dp_case_id
+                """
+        cursor = connection.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
 
 @app.get("/get-encodings")
 def get_encodings():
@@ -91,13 +122,16 @@ def get_encodings():
         return encodings
 
 @app.post("/add-detected-person")
-def add_detected_person(case_id: str, location: str):
-    with PostgresConnection() as connection:
-        cursor = connection.cursor()
-        cursor.execute("insert into detected_persons (dp_id, dp_case_id, dp_location) values ('{}', '{}', '{}')".format(
-            str(uuid.uuid4()), case_id, location))
-        cursor.execute("update submitted_cases set sc_case_status = 'detected' where sc_id = '{}'".format(case_id))
-        return {"message": "Detected person added successfully"}
+def add_detected_person(detect_person: DetectPerson):
+    if check_case_id(detect_person.dp_case_id) == False:
+        with PostgresConnection() as connection:
+            cursor = connection.cursor()
+            cursor.execute("insert into detected_persons (dp_id, dp_case_id, dp_location, dp_detected_image) values ('{}', '{}', '{}', '{}')".format(
+                str(uuid.uuid4()), detect_person.dp_case_id, detect_person.dp_location, detect_person.dp_detected_image))
+            cursor.execute("update submitted_cases set sc_case_status = 'found' where sc_id = '{}'".format(detect_person.dp_case_id))
+            return {"status": "success", "message": "Detected person added successfully"}
+    else:
+        return {"status": "error", "message": "Case ID already exists"}
 
 @app.get("/get-detected-persons")
 def get_detected_persons():
