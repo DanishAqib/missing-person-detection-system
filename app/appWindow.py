@@ -1,20 +1,15 @@
 import sys
 import requests
 import json
-import base64
-import io
 
-from PIL import Image
-import numpy as np
 from PyQt5 import QtGui, QtCore
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QPixmap, QIcon, QStandardItemModel, QStandardItem, QCursor
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QListView, QBoxLayout
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
 from newCaseWindow import NewCaseWindow
 from detectionWindow import DetectionWindow
 from casesListWindow import CasesListWindow
-from PyQt5.QtWidgets import QListWidget, QLabel, QLineEdit, QMessageBox
-from utils import customStyle, format_date_time
+from PyQt5.QtWidgets import QLabel, QMessageBox
+from utils import customStyle
 
 class AppWindow(QMainWindow):
     def __init__(self, user=""):

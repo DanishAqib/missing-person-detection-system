@@ -68,15 +68,16 @@ class CasesListWindow(QMainWindow):
         list_.show()
         
     def display_submitted_cases(self, case, model):
-            image = self.decode_base64(case[7])
-            p_case_status = case[6]
+            image = self.decode_base64(case[8])
+            p_case_status = case[7]
             item = QStandardItem(
                 "\tCase Status:\t" + p_case_status + 
                 "\n\tPerson Name:\t" + case[2] + 
                 "\n\tPerson Age:\t" + str(case[3]) +
                 "\n\tPerson Gender:\t" + case[4] +
                 "\n\tLast seen location:\t" + case[5] +
-                "\n\tCase Submitted At:\t" + format_date_time(case[9])
+                "\n\tGuardian contact:\t" + case[6] +
+                "\n\tCase Submitted At:\t" + format_date_time(case[10])
             )
             item.setFont(QtGui.QFont("Poppins", 8, QtGui.QFont.Bold))
             item.setText(item.text().title())
@@ -94,44 +95,36 @@ class CasesListWindow(QMainWindow):
             model.appendRow(item)
 
     def display_found_cases(self, case, model):
-        case_image = self.decode_base64(case[5])
-        detected_image = self.decode_base64(case[9])
+        detected_image = self.decode_base64(case[10])
         p_name = case[1]
         p_age = case[2]
         p_gender = case[3]
-        p_case_status = case[4]
         p_case_submitted_at = format_date_time(case[6])
         p_detected_location = case[8]
-        p_detected_at = format_date_time(case[10])
+        p_guardian_contact = case[9]
+        p_detected_at = format_date_time(case[11])
 
         item = QStandardItem(
-            "\tCase Status:\t" + p_case_status + 
             "\n\tPerson Name:\t" + p_name + 
             "\n\tPerson Age:\t" + str(p_age) +
             "\n\tPerson Gender:\t" + p_gender + 
             "\n\tCase Submitted At:\t" + p_case_submitted_at +
             "\n\tDetected Location:\t" + p_detected_location +
+            "\n\tGuardian Contact:\t" + p_guardian_contact +
             "\n\tDetected At:\t" + p_detected_at
         )
         item.setFont(QtGui.QFont("Poppins", 8, QtGui.QFont.Bold))
         item.setText(item.text().title())
         item.setBackground(QtGui.QColor("#4caf50"))
         
-        case_image = QtGui.QImage(case_image,
-                                case_image.shape[1],
-                                case_image.shape[0],
-                                case_image.shape[1] * 3,
-                                QtGui.QImage.Format_RGB888)
         detected_image = QtGui.QImage(detected_image,
                                 detected_image.shape[1],
                                 detected_image.shape[0],
                                 detected_image.shape[1] * 3,
                                 QtGui.QImage.Format_RGB888)
-        icon = QPixmap(case_image)
         detected_icon = QPixmap(detected_image)
-        item.setIcon(QIcon(icon))
         item.setIcon(QIcon(detected_icon))
-        model.appendRow(item)       
+        model.appendRow(item)
 
     def display_no_cases(self):
         no_cases_label = QLabel("No cases found", self)

@@ -1,13 +1,21 @@
 import uuid
-import datetime
+from datetime import datetime
+from twilio.rest import Client
+from msgConfig import account_sid, auth_token
 
 def generate_uuid() -> str:
     return str(uuid.uuid4())
 
 def format_date_time(date_time) -> str:
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     date_time = date_time.split("T")
     date = date_time[0]
     time = date_time[1].split(".")[0]
+    date = datetime.strptime(date, "%Y-%m-%d").strftime("%d-%m-%Y")
+    date = date.split("-")
+    date[1] = months[int(date[1]) - 1]
+    date = "-".join(date)
+    time = datetime.strptime(time, "%H:%M:%S").strftime("%I:%M %p")
     return date + " " + time
 
 def customStyle() -> str:
@@ -64,3 +72,16 @@ def customStyle() -> str:
             border-radius: 25px;
         }
     """
+
+def convert_to_international_format(number) -> str:
+    if number[0] == "0":
+        number = number[1:]
+    return "+92" + number
+
+def send_message_to_guardian(number, message):
+    client = Client(account_sid, auth_token)
+    message = client.messages.create(
+        to=convert_to_international_format(number),
+        from_="+18655099495",
+        body=message
+    )

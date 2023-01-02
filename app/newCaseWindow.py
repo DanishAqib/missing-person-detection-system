@@ -6,10 +6,10 @@ import base64
 import json
 
 from PyQt5 import QtGui, QtCore
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QPixmap, QIcon, QStandardItemModel, QStandardItem, QCursor
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QListView, QBoxLayout, QFileDialog
-from PyQt5.QtWidgets import QMessageBox, QListWidget, QLabel, QLineEdit, QComboBox
+from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QPixmap, QIcon, QCursor
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QMessageBox, QLabel, QLineEdit, QComboBox
 from utils import generate_uuid, customStyle
 
 class NewCaseWindow(QMainWindow):
@@ -27,7 +27,9 @@ class NewCaseWindow(QMainWindow):
         self.age = None
         self.gender = None
         self.last_seen_location = None
+        self.contact_number = None
         self.contact = None
+        self.entries = {}
 
         self.initialize()
 
@@ -39,7 +41,7 @@ class NewCaseWindow(QMainWindow):
         self.show_dummy_image()
 
         btn_upload_image = QPushButton("\t\tUpload Image", self)
-        btn_upload_image.move(700, 150)
+        btn_upload_image.move(700, 140)
         btn_upload_image.resize(282, 70)
         btn_upload_image.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
         upload_icon = QIcon()
@@ -52,9 +54,10 @@ class NewCaseWindow(QMainWindow):
         self.get_age()
         self.get_gender()
         self.get_last_seen_location()
+        self.get_contact_info()
 
         btn_submit = QPushButton("Submit", self)
-        btn_submit.move(700, 650)
+        btn_submit.move(700, 690)
         btn_submit.resize(282, 50)
         btn_submit.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
         btn_submit.clicked.connect(self.on_submit)
@@ -73,13 +76,13 @@ class NewCaseWindow(QMainWindow):
     def get_name(self):
         self.name = QLineEdit(self)
         self.name.setPlaceholderText("Enter name")
-        self.name.move(700, 270)
+        self.name.move(700, 260)
         self.name.resize(282, 55)
 
     def get_age(self):
         self.age = QLineEdit(self)
         self.age.setPlaceholderText("Enter age")
-        self.age.move(700, 360)
+        self.age.move(700, 340)
         self.age.resize(282, 55)
 
     def get_gender(self):
@@ -89,20 +92,27 @@ class NewCaseWindow(QMainWindow):
         self.gender.view().setStyleSheet("QListView { border: 0px; width: 0px; font-family: Poppins; background: #fff; }")
         self.gender.setCurrentIndex(0)
         self.gender.model().item(0).setEnabled(False)
-        self.gender.move(700, 440)
+        self.gender.move(700, 420)
         self.gender.resize(282, 55)
 
     def get_last_seen_location(self):
         self.last_seen_location = QLineEdit(self)
         self.last_seen_location.setPlaceholderText("Last location")
-        self.last_seen_location.move(700, 520)
+        self.last_seen_location.move(700, 500)
         self.last_seen_location.resize(282, 55)
+        self.last_seen_location.returnPressed.connect(self.on_submit)
+
+    def get_contact_info(self):
+        self.contact_number = QLineEdit(self)
+        self.contact_number.setPlaceholderText("Guardian's contact no.")
+        self.contact_number.move(700, 580)
+        self.contact_number.resize(282, 55)
 
     def open_file_dialog(self):
         options = QFileDialog.Options()
         self.fileName, _ = QFileDialog.getOpenFileName(
                     self, "QFileDialog.getOpenFileName()",
-                    "", "jpg file (*.jpg)", options=options)
+                    "", "Images (*.jpg *.png *.jpeg)", options=options)
 
         if self.fileName:
             img = cv2.cvtColor(cv2.imread(self.fileName), cv2.COLOR_BGR2RGB)
@@ -124,28 +134,35 @@ class NewCaseWindow(QMainWindow):
         self.image_label.show()
 
     def get_entries(self):
-        entries = {}
-        if self.name.text() != "" and self.age.text() != "" and self.gender.currentText() != "Select Gender" and self.last_seen_location.text() != "":
-            entries["sc_name"] = self.name.text()
-            entries["sc_age"] = self.age.text()
-            entries["sc_gender"] = self.gender.currentText()
-            entries["sc_last_seen_location"] = self.last_seen_location.text()
-            return entries
+        if self.name.text() != "" and self.age.text() != "" and self.gender.currentText() != "Select Gender" and self.last_seen_location.text() != "" and self.contact_number.text() != "":
+            if not self.name.text().replace(" ", "").isalpha():
+                QMessageBox.about(self, "Error", "Please enter a valid name")
+                return
+            if not self.age.text().isdigit():
+                QMessageBox.about(self, "Error", "Please enter a valid age")
+                return
+            if not self.contact_number.text().isdigit() or len(self.contact_number.text()) != 11:
+                QMessageBox.about(self, "Error", "Please enter a valid contact number")
+                return
+            self.entries["sc_name"] = self.name.text()
+            self.entries["sc_age"] = self.age.text()
+            self.entries["sc_gender"] = self.gender.currentText()
+            self.entries["sc_last_seen_location"] = self.last_seen_location.text()
+            self.entries["sc_contact_number"] = self.contact_number.text()
         else:
-            return None
+            QMessageBox.about(self, "Error", "Please fill all entries")
 
     def on_submit(self):
         if self.image is None:
             QMessageBox.about(self, "Error", "Please upload an image")
             return
-        entries = self.get_entries()
-        if entries:
-            entries["sc_case_status"] = "not found"
-            entries["sc_face_encoding"] = str(self.encoded_image.tolist())
-            entries["sc_id"] = generate_uuid()
-            self.save_to_db(entries, self.user)
-        else:
-            QMessageBox.about(self, "Error", "Please fill all entries")
+        self.get_entries()
+        if self.entries != {}:
+            self.entries["sc_case_status"] = "not found"
+            self.entries["sc_face_encoding"] = str(self.encoded_image.tolist())
+            self.entries["sc_id"] = generate_uuid()
+            self.save_to_db(self.entries, self.user)
+        return
 
     def save_to_db(self, entries, user):
         URL = "http://localhost:8000/submit-case"

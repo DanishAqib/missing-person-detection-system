@@ -1,4 +1,3 @@
-from email import message
 import sys
 import requests
 
@@ -32,12 +31,31 @@ class LoginWindow(QMainWindow):
         self.get_password()
 
         btn_login = QPushButton("Login", self)
-        btn_login.move(410, 550)
+        btn_login.move(410, 540)
         btn_login.resize(292, 50)
         btn_login.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
         btn_login.clicked.connect(self.login)
 
+        register_text = QLabel(self)
+        register_text.setText("Don't have an account?")
+        register_text.move(-30, 620)
+        register_text.setStyleSheet("font-size: 16px; color: #fff; font-weight: bold;")
+        register_text.resize(self.width, 50)
+        register_text.setAlignment(QtCore.Qt.AlignCenter)
+
+        btn_register = QPushButton("Register", self)
+        btn_register.move(620, 627)
+        btn_register.resize(70, 30)
+        btn_register.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        btn_register.setStyleSheet("background-color: transparent; color: #ab85ff; font-size: 16px; font-weight: bold; border: none;")
+        btn_register.clicked.connect(self.register)
+
         self.show()
+
+    def register(self):
+        from registerWindow import RegisterWindow
+        self.registerWindow = RegisterWindow()
+        self.close()
 
     def display_login_title(self):
         title = QLabel(self)
@@ -59,6 +77,7 @@ class LoginWindow(QMainWindow):
         self.password.move(410, 420)
         self.password.resize(292, 50)
         self.password.setEchoMode(QLineEdit.Password)
+        self.password.returnPressed.connect(self.login)
 
     def login(self):
         username = self.username.text()

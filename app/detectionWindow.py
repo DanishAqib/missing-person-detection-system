@@ -5,13 +5,17 @@ import numpy as np
 import requests
 import base64
 import json
+import folium
+import webbrowser
 
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
 from PyQt5.QtWidgets import QMessageBox, QLabel, QLineEdit, QFileDialog
 from PyQt5.QtGui import QCursor, QIcon, QPixmap
-from utils import customStyle
+from datetime import datetime
+from geopy.geocoders import Nominatim
+from utils import customStyle, send_message_to_guardian
 
 class DetectionWindow(QMainWindow):
     def __init__(self, cases = []):
@@ -26,7 +30,7 @@ class DetectionWindow(QMainWindow):
         self.encoded_list = []
         self.video_location = None
         self.image = None
-        self.fileName = ""
+        self.fileName = None
         self.message_label = None
         self.setStyleSheet(customStyle())
 
@@ -35,7 +39,7 @@ class DetectionWindow(QMainWindow):
     def get_encoded_list(self):
         if self.cases:
             for case in self.cases:
-                self.encoded_list.append(case[8])
+                self.encoded_list.append(case[9])
             return self.encoded_list
         else:
             return []
@@ -88,12 +92,20 @@ class DetectionWindow(QMainWindow):
             self.message_label.show()
 
     def start_detection(self):
-        if self.fileName == "":
-            QMessageBox.warning(self, "Warning", "Please upload a video")
+        if self.video_location.text() == "":
+            QMessageBox.warning(self, "Warning", "Please enter the location")
             return
+        qm = QMessageBox
+        ret = None
+        if self.fileName == None:
+            ret = qm.question(self, '', "No video uploaded. Do you want to start live detection?", qm.Yes | qm.No)
+            if ret == qm.Yes:
+                self.fileName = 0
+            else:
+                return
         
         self.update_entries()
-        if self.entries:
+        if self.entries or ret == qm.Yes:
             self.get_encoded_list()
             if self.encoded_list:
                 self.detect_face()
@@ -102,10 +114,28 @@ class DetectionWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "Warning", "Please fill all the entries")
 
+    def show_detected_location(self):
+        if self.person_detected == False:
+            return
+        geolocator = Nominatim(user_agent="myapplication")
+        location = geolocator.geocode(self.video_location.text())
+        lat = location.latitude
+        lon = location.longitude
+        m = folium.Map(location=[lat, lon], zoom_start=15)
+        folium.Marker([lat, lon], popup=self.entries["dp_person_name"] + "\nLast seen location: " + self.video_location.text(), icon=folium.Icon(color='red', icon='info-sign')).add_to(m)
+
+        m.save(self.entries["dp_case_id"] + ".html")
+        webbrowser.open(self.entries["dp_case_id"] + ".html")
+
     def detect_face(self):
-        cap = cv2.VideoCapture(self.fileName)
+        if self.fileName == 0:
+            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(self.fileName)
         while True:
             success, img = cap.read()
+            if not success:
+                break
             imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
             imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
 
@@ -119,6 +149,9 @@ class DetectionWindow(QMainWindow):
 
                 if matches[matchIndex]:
                     self.entries["dp_case_id"] = self.cases[matchIndex][0]
+                    self.entries["dp_person_name"] = self.cases[matchIndex][2]
+                    self.entries["dp_contact_number"] = self.cases[matchIndex][6]
+                    self.entries["dp_case_status"] = self.cases[matchIndex][7]
                     self.image = img
                     self.person_detected = True
                     name = self.cases[matchIndex][2]
@@ -131,9 +164,21 @@ class DetectionWindow(QMainWindow):
             cv2.imshow('CCTV Footage', img)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 cv2.destroyAllWindows()
+                cap.release()
                 self.save_to_db()
+                self.send_message()
                 self.close()
                 break
+
+    def send_message(self):
+        if self.person_detected == False:
+            return
+
+        message = """
+            \nYour case has been detected.\nFollowing are the case details:\nPerson Name: {}\nDetected Location: {}\nDetected At: {}\nPlease contact the police station for further details.
+            """.format(self.entries["dp_person_name"], self.entries["dp_location"], datetime.now().strftime("%d-%m-%Y %H:%M:%S"))
+
+        send_message_to_guardian(self.entries["dp_contact_number"], message)
 
     def save_to_db(self):
         URL = "http://localhost:8000/add-detected-person"
@@ -150,6 +195,7 @@ class DetectionWindow(QMainWindow):
                 response = requests.post(URL, json.dumps(self.entries), headers=headers)
                 if response.status_code == 200:
                     QMessageBox.about(self, "Message", "Person Detected")
+                    self.show_detected_location()
                 else:
                     QMessageBox.about(self, "Error", "Something went wrong")
             except Exception as e:
@@ -158,6 +204,7 @@ class DetectionWindow(QMainWindow):
     def update_entries(self):
         if self.video_location.text() != "":
             self.entries["dp_location"] = self.video_location.text()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
